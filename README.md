@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Planet Zoo Habitat Planner</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .scrollbar-thin::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        .scrollbar-thin::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+        .scrollbar-thin::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 10px;
+        }
+        .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+        /* Simple transition for card appearance */
+        .fade-in {
+            animation: fadeIn 0.5s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="bg-green-50 text-gray-800">
+
+    <div class="container mx-auto p-4 md:p-8">
+        <header class="text-center mb-8">
+            <h1 class="text-4xl md:text-5xl font-bold text-green-800">Planet Zoo Habitat Planner</h1>
+            <p class="text-green-600 mt-2 text-lg">Select animals to calculate their combined habitat needs and compatibility.</p>
+        </header>
+
+        <div class="flex flex-col lg:flex-row gap-8">
+            <!-- Left Panel: Controls -->
+            <aside class="lg:w-1/3 w-full bg-white p-6 rounded-2xl shadow-lg">
+                <h2 class="text-2xl font-bold mb-4 text-gray-700">Build Your Habitat</h2>
+                <div class="space-y-4">
+                    <div>
+                        <label for="animal-select" class="block text-sm font-medium text-gray-600 mb-1">Add Animal</label>
+                        <select id="animal-select" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition">
+                            <!-- Options will be populated by JS -->
+                        </select>
+                    </div>
+                    <button id="add-animal-btn" class="w-full bg-green-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-green-700 transition-colors duration-300 shadow active:scale-95">
+                        Add to Habitat
+                    </button>
+                    <button id="reset-habitat-btn" class="w-full bg-gray-200 text-gray-700 font-bold py-3 px-4 rounded-lg hover:bg-gray-300 transition-colors duration-300">
+                        Clear Habitat
+                    </button>
+                </div>
+                
+                <hr class="my-6 border-gray-200">
+
+                <h3 class="text-xl font-bold mb-3 text-gray-700">Selected Animals</h3>
+                <div id="selected-animals-list" class="space-y-3 max-h-[32rem] overflow-y-auto scrollbar-thin pr-2">
+                    <p id="empty-state" class="text-gray-500">No animals added yet.</p>
+                    <!-- Selected animal cards will be populated here -->
+                </div>
+            </aside>
+
+            <!-- Right Panel: Results -->
+            <main class="lg:w-2/3 w-full">
+                <div id="results-container" class="bg-white p-6 rounded-2xl shadow-lg min-h-[500px]">
+                    <div id="results-placeholder" class="flex flex-col items-center justify-center h-full text-center">
+                         <svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="text-green-300 mb-4"><path d="M21.92 14.74a1 1 0 0 0-.2-1.06l-2.6-2.97a1 1 0 0 0-1.12-.22l-2.98 1.3a1 1 0 0 0-.58 1.12l1.3 2.98a1 1 0 0 0 1.12.58l2.97-1.3a1 1 0 0 0 1.05-.21z"/><path d="m11 11-1.3 2.98a1 1 0 0 0 .58 1.12l2.97 1.3a1 1 0 0 0 1.12-.58L17 12.86"/><path d="m14 14 2.24.96"/><path d="m16.5 11.5-2.52 5.76"/><path d="M4.26 10.26a1 1 0 0 0-1.06.2l-1.3 2.98a1 1 0 0 0 .58 1.12l2.97 1.3a1 1 0 0 0 1.12-.58l1.3-2.98a1 1 0 0 0-.22-1.12l-2.97-1.3a1 1 0 0 0-.42 0z"/><path d="m10 10-2.98 1.3a1 1 0 0 0-.58 1.12L7.7 15.4a1 1 0 0 0 1.12.58L11.8 14"/><path d="M12 22v-2"/><path d="m7 20-2-1"/><path d="m17 20 2-1"/><path d="M4 14H2"/><path d="M3 9V7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2"/><path d="M12 5V2"/><path d="M8 5V2"/><path d="M16 5V2"/></svg>
+                        <h2 class="text-2xl font-bold text-gray-600">Your Habitat Awaits</h2>
+                        <p class="text-gray-500 mt-2 max-w-md">Add some animals from the panel on the left to see their combined needs for a perfect enclosure.</p>
+                    </div>
+                    <div id="results-content" class="hidden">
+                        <!-- Results will be dynamically inserted here -->
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <script>
+    // --- DATA START ---
+    // Complete dataset based on the provided CSV files.
+    const animalData = [
+        { name: "Aardvark", land: 330, landPer: 60, water: 0, waterPer: 0, climb: 0, climbPer: 0, barrierGrade: 2, barrierHeight: 0.5, tempMin: 16, tempMax: 42, continents: ["Africa"], biomes: ["Grassland", "Tropical"], maxM: 1, maxF: 1, group: "1-2" },
+        { name: "Addax", land: 370, landPer: 45, water: 0, waterPer: 0, climb: 0, climbPer: 0, barrierGrade: 2, barrierHeight: 1.25, tempMin: 3, tempMax: 45, continents: ["Africa"], biomes: ["Desert"], maxM: 1, maxF: 24, group: "2-25" },
+        { name: "African Buffalo", land: 640, landPer: 100, water: 20, waterPer: 10, climb: 0, climbPer: 0, barrierGrade: 3, barrierHeight: 1.25, tempMin: 16, tempMax: 40, continents: ["Africa"], biomes: ["Aquatic", "Grassland", "Tropical"], maxM: 1, maxF: 14, group: "3-15" },
+        { name: "African Crested Porcupine", land: 310, landPer: 55, water: 0, waterPer: 0, climb: 0, climbPer: 0, barrierGrade: 1, barrierHeight: 0.5, tempMin: 10, tempMax: 44, continents: ["Africa"], biomes: ["Temperate", "Grassland", "Tropical", "Desert"], maxM: 5, maxF: 5, group: "1-6" },
+        { name: "African Leopard", land: 750, landPer: 125, water: 0, waterPer: 0, climb: 45, climbPer: 15, barrierGrade: 3, barrierHeight: 3, tempMin: 10, tempMax: 44, continents: ["Africa"], biomes: ["Temperate", "Grassland", "Tropical", "Desert"], maxM: 1, maxF: 1, group: "1-2", predator: true },
+        { name: "African Penguin", land: 340, landPer: 5, water: 135, waterPer: 2, deepWater: 68, deepWaterPer: 2, deepWaterDepth: 2, climb: 0, climbPer: 0, barrierGrade: 2, barrierHeight: 0.5, tempMin: 4, tempMax: 38, continents: ["Africa"], biomes: ["Aquatic", "Temperate"], maxM: 500, maxF: 500, group: "6-500" },
+        { name: "African Savannah Elephant", land: 2151, landPer: 667, water: 148, waterPer: 74, climb: 0, climbPer: 0, barrierGrade: 4, barrierHeight: 0.5, tempMin: 18, tempMax: 42, continents: ["Africa"], biomes: ["Grassland", "Tropical", "Desert"], maxM: 1, maxF: 14, group: "3-15" },
+        { name: "African Spurred Tortoise", land: 260, landPer: 40, water: 0, waterPer: 0, climb: 0, climbPer: 0, barrierGrade: 1, barrierHeight: 0.5, tempMin: 10, tempMax: 44, continents: ["Africa"], biomes: ["Grassland", "Desert"], maxM: 4, maxF: 4, group: "1-8" },
+        { name: "African Wild Dog", land: 1162, landPer: 142, water: 0, waterPer: 0, climb: 0, climbPer: 0, barrierGrade: 2, barrierHeight: 2, tempMin: 14, tempMax: 44, continents: ["Africa"], biomes: ["Grassland", "Desert"], maxM: 12, maxF: 12, group: "2-12", predator: true },
+        { name: "Aldabra Giant Tortoise", land: 310, landPer: 55, water: 20, waterPer: 10, climb: 0, climbPer: 0, barrierGrade: 1, barrierHeight: 0.5, tempMin: 22, tempMax: 42, continents: ["Africa"], biomes: ["Tropical"], maxM: 4, maxF: 4, group: "1-8" },
+        { name: "Alpaca", land: 290, landPer: 20, water: 0, waterPer: 0, climb: 0, climbPer: 0, barrierGrade: 2, barrierHeight: 1.25, tempMin: -15, tempMax: 35, continents: ["S. America"], biomes: ["Tundra", "Taiga", "Temperate", "Grassland"], maxM: 1, maxF: 9, group: "2-10" },
+        { name: "Alpine Goat", land: 290, landPer: 20, water: 0, waterPer: 0, climb: 45, climbPer: 15, barrierGrade: 2, barrierHeight: 1.25, tempMin: -7, tempMax: 38, continents: ["Africa", "Asia", "Europe"], biomes: ["Tundra", "Taiga", "Temperate", "Grassland"], maxM: 1, maxF: 9, group: "2-10" },
+        { name: "Alpine Ibex", land: 420, landPer: 90, water: 0, waterPer: 0, climb: 45, climbPer: 15, barrierGrade: 2, barrierHeight: 1.75, tempMin: -7, tempMax: 38, continents: ["Europe"], biomes: ["Tundra", "Taiga"], maxM: 20, maxF: 20, group: "3-20" },
+        { name: "American Alligator", land: 160, landPer: 40, water: 230, waterPer: 60, deepWater: 115, deepWaterPer: 30, deepWaterDepth: 2, climb: 0, climbPer: 0, barrierGrade: 4, barrierHeight: 0.5, tempMin: 4, tempMax: 40, continents: ["N. America"], biomes: ["Aquatic", "Temperate"], maxM: 1, maxF: 1, group: "1-2", predator: true },
+        { name: "American Bison", land: 630, landPer: 105, water: 0, waterPer: 0, climb: 0, climbPer: 0, barrierGrade: 3, barrierHeight: 1.25, tempMin: -15, tempMax: 35, continents: ["N. America"], biomes: ["Taiga", "Temperate", "Grassland"], maxM: 1, maxF: 14, group: "3-15" },
+        { name: "American Flamingo", land: 402, landPer: 13, water: 422, waterPer: 8, deepWater: 0, deepWaterPer: 0, deepWaterDepth: 0, climb: 0, climbPer: 0, barrierGrade: 1, barrierHeight: 1, tempMin: 4, tempMax: 40, continents: ["N. America", "C. America", "S. America"], biomes: ["Temperate", "Grassland", "Tropical"], maxM: 500, maxF: 500, group: "5-500" },
+        { name: "American Standard Donkey", land: 330, landPer: 60, water: 0, waterPer: 0, climb: 0, climbPer: 0, barrierGrade: 2, barrierHeight: 1.25, tempMin: 3, tempMax: 45, continents: ["Africa"], biomes: ["Temperate", "Grassland", "Desert"], maxM: 1, maxF: 9, group: "2-10" },
+        { name: "Amur Leopard", land: 750, landPer: 125, water: 0, waterPer: 0, climb: 45, climbPer: 15, barrierGrade: 3, barrierHeight: 3, tempMin: -25, tempMax: 25, continents: ["Asia"], biomes: ["Tundra", "Taiga", "Temperate"], maxM: 1, maxF: 1, group: "1-2", predator: true },
+        { name: "Arctic Fox", land: 370, landPer: 55, water: 0, waterPer: 0, climb: 0, climbPer: 0, barrierGrade: 2, barrierHeight: 1, tempMin: -40, tempMax: 22, continents: ["N. America", "Europe", "Asia"], biomes: ["Tundra", "Taiga"], maxM: 1, maxF: 1, group: "1-2", predator: true },
+        { name: "Arctic Wolf", land: 1254, landPer: 92, water: 0, waterPer: 0, climb: 0, climbPer: 0, barrierGrade: 2, barrierHeight: 2, tempMin: -40, tempMax: 22, continents: ["N. America", "Europe", "Asia"], biomes: ["Tundra", "Taiga"], maxM: 12, maxF: 12, group: "2-12", predator: true },
+        { name: "Asian Small-Clawed Otter", land: 160, landPer: 20, water: 130, waterPer: 25, deepWater: 65, deepWaterPer: 12, deepWaterDepth: 1, climb: 0, climbPer: 0, barrierGrade: 2, barrierHeight: 1, tempMin: 10, tempMax: 40, continents: ["Asia"], biomes: ["Aquatic", "Temperate", "Tropical"], maxM: 9, maxF: 9, group: "2-18" },
+        { name: "Asian Water Monitor", land: 160, landPer: 20, water: 70, waterPer: 10, deepWater: 35, deepWaterPer: 5, deepWaterDepth: 1, climb: 0, climbPer: 0, barrierGrade: 2, barrierHeight: 1, tempMin: 16, tempMax: 44, continents: ["Asia"], biomes: ["Aquatic", "Tropical"], maxM: 1, maxF: 1, group: "1-2", predator: true },
+        { name: "Bactrian Camel", land: 420, landPer: 90, water: 0, waterPer: 0, climb: 0, climbPer: 0, barrierGrade: 2, barrierHeight: 1.25, tempMin: -20, tempMax: 40, continents: ["Asia"], biomes: ["Temperate", "Desert"], maxM: 1, maxF: 12, group: "3-13" },
+        { name: "Baird's Tapir", land: 390, landPer: 60, water: 45, waterPer: 15, climb: 0, climbPer: 0, barrierGrade: 3, barrierHeight: 1.25, tempMin: 18, tempMax: 42, continents: ["C. America", "S. America"], biomes: ["Tropical"], maxM: 1, maxF: 1, group: "1-2" },
+        { name: "Bengal Tiger", land: 1162, landPer: 142, water: 95, waterPer: 30, climb: 0, climbPer: 0, barrierGrade: 4, barrierHeight: 4, tempMin: 10, tempMax: 42, continents: ["Asia"], biomes: ["Temperate", "Grassland", "Tropical"], maxM: 1, maxF: 1, group: "1-2", predator: true },
+        { name: "Bighorn Sheep", land: 420, landPer: 90, water: 0, waterPer: 0, climb: 45, climbPer: 15, barrierGrade: 2, barrierHeight: 1.75, tempMin: -20, tempMax: 35, continents: ["N. America"], biomes: ["Taiga", "Temperate", "Desert"], maxM: 20, maxF: 20, group: "3-20" },
+        { name: "Binturong", land: 260, landPer: 40, water: 0, waterPer: 0, climb: 170, climbPer: 25, barrierGrade: 2, barrierHeight: 1.75, tempMin: 17, tempMax: 42, continents: ["Asia"], biomes: ["Tropical"], maxM: 1, maxF: 1, group: "1-2" },
+        { name: "Black Rhinoceros", land: 835, landPer: 125, water: 20, waterPer: 10, climb: 0, climbPer: 0, barrierGrade: 4, barrierHeight: 0.5, tempMin: 16, tempMax: 42, continents: ["Africa"], biomes: ["Grassland", "Tropical"], maxM: 1, maxF: 1, group: "1-2" },
+        { name: "Black Wildebeest", land: 420, landPer: 90, water: 0, waterPer: 0, climb: 0, climbPer: 0, barrierGrade: 3, barrierHeight: 1.25, tempMin: 10, tempMax: 42, continents: ["Africa"], biomes: ["Grassland"], maxM: 1, maxF: 29, group: "3-30" },
+        { name: "Black-and-white Ruffed Lemur", land: 260, landPer: 40, water: 0, waterPer: 0, climb: 170, climbPer: 25, barrierGrade: 2, barrierHeight: 2, tempMin: 10, tempMax: 42, continents: ["Africa"], biomes: ["Tropical"], maxM: 3, maxF: 3, group: "2-6" },
+        { name: "Black-tailed Prairie Dog", land: 260, landPer: 25, water: 0, waterPer: 0, climb: 0, climbPer: 0, barrierGrade: 1, barrierHeight: 0.5, tempMin: -15, tempMax: 35, continents: ["N. America"], biomes: ["Grassland"], maxM: 2, maxF: 4, group: "2-6" },
+        { name: "Blackbuck", land: 370, landPer: 45, water: 0, waterPer: 0, climb: 0, climbPer: 0, barrierGrade: 2, barrierHeight: 1.25, tempMin: 10, tempMax: 42, continents: ["Asia"], biomes: ["Grassland"], maxM: 1, maxF: 29, group: "3-30" },
+        { name: "Blue Wildebeest", land: 640, landPer: 100, water: 0, waterPer: 0, climb: 0, climbPer: 0, barrierGrade: 3, barrierHeight: 1.25, tempMin: 10, tempMax: 42, continents: ["Africa"], biomes: ["Grassland"], maxM: 1, maxF: 29, group: "3-30" },
+        { name: "Bongo", land: 420, landPer: 90, water: 0, waterPer: 0, climb: 0, climbPer: 0, barrierGrade: 3, barrierHeight: 1.25, tempMin: 17, tempMax: 42, continents: ["Africa"], biomes: ["Tropical"], maxM: 1, maxF: 19, group: "3-20" },
+        { name: "Bonobo", land: 525, landPer: 105, water: 0, waterPer: 0, climb: 260, climbPer: 55, barrierGrade: 3, barrierHeight: 3, tempMin: 17, tempMax: 42, continents: ["Africa"], biomes: ["Tropical"], maxM: 10, maxF: 10, group: "5-20" },
+        { name: "Bornean Elephant", land: 1622, landPer: 500, water: 110, waterPer: 55, climb: 0, climbPer: 0, barrierGrade: 4, barrierHeight: 0.5, tempMin: 18, tempMax: 42, continents: ["Asia"], biomes: ["Tropical"], maxM: 1, maxF: 14, group: "3-15" },
+        { name: "Bornean Orangutan", land: 420, landPer: 90, water: 0, waterPer: 0, climb: 230, climbPer: 45, barrierGrade: 4, barrierHeight: 3, tempMin: 17, tempMax: 42, continents: ["Asia"], biomes: ["Tropical"], maxM: 1, maxF: 1, group: "1-2" },
+        { name: "Bush Dog", land: 260, landPer: 40, water: 20, waterPer: 10, climb: 0, climbPer: 0, barrierGrade: 2, barrierHeight: 1, tempMin: 16, tempMax: 42, continents: ["C. America", "S. America"], biomes: ["Grassland", "Tropical"], maxM: 5, maxF: 5, group: "2-10", predator: true },
+        { name: "California Sea Lion", land: 260, landPer: 25, water: 340, waterPer: 45, deepWater: 170, deepWaterPer: 22, deepWaterDepth: 2, climb: 0, climbPer: 0, barrierGrade: 2, barrierHeight: 0.5, tempMin: 4, tempMax: 35, continents: ["N. America"], biomes: ["Aquatic", "Temperate"], maxM: 1, maxF: 11, group: "3-12" },
+        { name: "Capybara", land: 220, landPer: 20, water: 90, waterPer: 10, climb: 0, climbPer: 0, barrierGrade: 1, barrierHeight: 1, tempMin: 16, tempMax: 42, continents: ["S. America"], biomes: ["Aquatic", "Grassland", "Tropical"], maxM: 1, maxF: 14, group: "3-15" },
+        { name: "Caracal", land: 370, landPer: 55, water: 0, waterPer: 0, climb: 45, climbPer: 15, barrierGrade: 2, barrierHeight: 2, tempMin: 10, tempMax: 44, continents: ["Africa", "Asia"], biomes: ["Temperate", "Grassland", "Tropical", "Desert"], maxM: 1, maxF: 1, group: "1-2", predator: true },
+        { name: "Cheetah", land: 1254, landPer: 158, water: 0, waterPer: 0, climb: 0, climbPer: 0, barrierGrade: 2, barrierHeight: 3, tempMin: 14, tempMax: 44, continents: ["Africa"], biomes: ["Grassland"], maxM: 5, maxF: 1, group: "1-6", predator: true },
+        { name: "Chinese Pangolin", land: 260, landPer: 40, water: 0, waterPer: 0, climb: 0, climbPer: 0, barrierGrade: 2, barrierHeight: 1, tempMin: 10, tempMax: 40, continents: ["Asia"], biomes: ["Temperate", "Tropical"], maxM: 1, maxF: 1, group: "1-2" },
+        { name: "Clouded Leopard", land: 370, landPer: 55, water: 0, waterPer: 0, climb: 170, climbPer: 25, barrierGrade: 3, barrierHeight: 3, tempMin: 17, tempMax: 42, continents: ["Asia"], biomes: ["Tropical"], maxM: 1, maxF: 1, group: "1-2", predator: true },
+        { name: "Collared Peccary", land: 330, landPer: 60, water: 20, waterPer: 10, climb: 0, climbPer: 0, barrierGrade: 2, barrierHeight: 1, tempMin: -15, tempMax: 35, continents: ["N. America", "C. America", "S. America"], biomes: ["Temperate", "Grassland", "Tropical", "Desert"], maxM: 1, maxF: 14, group: "3-15" },
+        { name: "Colombian White-faced Capuchin", land: 330, landPer: 60, water: 0, waterPer: 0, climb: 170, climbPer: 25, barrierGrade: 2, barrierHeight: 2.5, tempMin: 18, tempMax: 42, continents: ["C. America", "S. America"], biomes: ["Tropical"], maxM: 20, maxF: 20, group: "5-40" },
+        { name: "Common Ostrich", land: 700, landPer: 110, water: 0, waterPer: 0, climb: 0, climbPer: 0, barrierGrade: 2, barrierHeight: 1.25, tempMin: 14, tempMax: 44, continents: ["Africa"], biomes: ["Grassland", "Desert"], maxM: 1, maxF: 7, group: "2-8" },
+        { name: "Common Warthog", land: 330, landPer: 60, water: 20, waterPer: 10, climb: 0, climbPer: 0, barrierGrade: 2, barrierHeight: 1, tempMin: 16, tempMax: 42, continents: ["Africa"], biomes: ["Grassland", "Tropical"], maxM: 1, maxF: 6, group: "2-7" },
+        { name: "Common Wombat", land: 310, landPer: 55, water: 0, waterPer: 0, climb: 0, climbPer: 0, barrierGrade: 1, barrierHeight: 0.5, tempMin: -10, tempMax: 35, continents: ["Oceania"], biomes: ["Temperate", "Grassland"], maxM: 1, maxF: 1, group: "1-2" },
+        { name: "Coquerel's Sifaka", land: 310, landPer: 40, water: 0, waterPer: 0, climb: 170, climbPer: 25, barrierGrade: 2, barrierHeight: 2, tempMin: 10, tempMax: 42, continents: ["Africa"], biomes: ["Tropical"], maxM: 4, maxF: 4, group: "2-8" },
+        { name: "Cougar", land: 705, landPer: 110, water: 0, waterPer: 0, climb: 45, climbPer: 15, barrierGrade: 3, barrierHeight: 3, tempMin: -20, tempMax: 35, continents: ["N. America", "S. America"], biomes: ["Tundra", "Taiga", "Temperate", "Grassland", "Tropical", "Desert"], maxM: 1, maxF: 1, group: "1-2", predator: true },
+        { name: "Coyote", land: 1162, landPer: 92, water: 0, waterPer: 0, climb: 0, climbPer: 0, barrierGrade: 2, barrierHeight: 2, tempMin: -20, tempMax: 35, continents: ["N. America", "C. America"], biomes: ["Taiga", "Temperate", "Grassland", "Desert"], maxM: 6, maxF: 6, group: "2-6", predator: true },
+        { name: "Cuvier's Dwarf Caiman", land: 160, landPer: 20, water: 101, waterPer: 14, deepWater: 50, deepWaterPer: 7, deepWaterDepth: 1, climb: 0, climbPer: 0, barrierGrade: 2, barrierHeight: 0.5, tempMin: 10, tempMax: 42, continents: ["S. America"], biomes: ["Aquatic", "Temperate", "Grassland", "Tropical"], maxM: 1, maxF: 1, group: "1-2" },
+        { name: "Dall Sheep", land: 420, landPer: 90, water: 0, waterPer: 0, climb: 45, climbPer: 15, barrierGrade: 2, barrierHeight: 1.75, tempMin: -30, tempMax: 22, continents: ["N. America"], biomes: ["Tundra", "Taiga"], maxM: 20, maxF: 20, group: "3-20" },
+        { name: "Dama Gazelle", land: 370, landPer: 45, water: 0, waterPer: 0, climb: 0, climbPer: 0, barrierGrade: 2, barrierHeight: 1.25, tempMin: 3, tempMax: 45, continents: ["Africa"], biomes: ["Desert"], maxM: 1, maxF: 14, group: "3-15" },
+        { name: "Dhole", land: 1162, landPer: 92, water: 20, waterPer: 10, climb: 0, climbPer: 0, barrierGrade: 2, barrierHeight: 2, tempMin: -25, tempMax: 30, continents: ["Asia"], biomes: ["Tundra", "Taiga", "Temperate", "Grassland", "Tropical"], maxM: 12, maxF: 12, group: "2-12", predator: true },
+        { name: "Dingo", land: 1162, landPer: 92, water: 0, waterPer: 0, climb: 0, climbPer: 0, barrierGrade: 2, barrierHeight: 2, tempMin: -10, tempMax: 44, continents: ["Oceania"], biomes: ["Temperate", "Grassland", "Tropical", "Desert"], maxM: 12, maxF: 12, group: "2-12", predator: true },
+        { name: "Dromedary Camel", land: 420, landPer: 90, water: 0, waterPer: 0, climb: 0, climbPer: 0, barrierGrade: 2, barrierHeight: 1.25, tempMin: 3, tempMax: 45, continents: ["Africa", "Asia"], biomes: ["Desert"], maxM: 1, maxF: 19, group: "3-20" },
+        { name: "Emu", land: 525, landPer: 105, water: 0, waterPer: 0, climb: 0, climbPer: 0, barrierGrade: 2, barrierHeight: 1.25, tempMin: -10, tempMax: 44, continents: ["Oceania"], biomes: ["Temperate", "Grassland", "Desert"], maxM: 1, maxF: 1, group: "1-2" },
+        { name: "Eurasian Lynx", land: 705, landPer: 110, water: 0, waterPer: 0, climb: 45, climbPer: 15, barrierGrade: 2, barrierHeight: 3, tempMin: -25, tempMax: 30, continents: ["Asia", "Europe"], biomes: ["Tundra", "Taiga", "Temperate"], maxM: 1, maxF: 1, group: "1-2", predator: true },
+        { name: "European Badger", land: 310, landPer: 55, water: 0, waterPer: 0, climb: 0, climbPer: 0, barrierGrade: 1, barrierHeight: 0.5, tempMin: -7, tempMax: 38, continents: ["Asia", "Europe"], biomes: ["Taiga", "Temperate", "Grassland"], maxM: 6, maxF: 6, group: "2-12" },
+        { name: "European Fallow Deer", land: 370, landPer: 45, water: 0, waterPer: 0, climb: 0, climbPer: 0, barrierGrade: 2, barrierHeight: 1.25, tempMin: -7, tempMax: 38, continents: ["Europe"], biomes: ["Temperate", "Grassland"], maxM: 1, maxF: 29, group: "3-30" },
+        { name: "Fennec Fox", land: 260, landPer: 25, water: 0, waterPer: 0, climb: 0, climbPer: 0, barrierGrade: 1, barrierHeight: 1, tempMin: 16, tempMax: 44, continents: ["Africa"], biomes: ["Desert"], maxM: 2, maxF: 2, group: "2-4" },
+        { name: "Formosan Black Bear", land: 976, landPer: 170, water: 45, waterPer: 15, climb: 0, climbPer: 0, barrierGrade: 4, barrierHeight: 2.5, tempMin: 0, tempMax: 35, continents: ["Asia"], biomes: ["Taiga", "Temperate", "Tropical"], maxM: 1, maxF: 1, group: "1-2", predator: true },
+        { name: "Fossa", land: 310, landPer: 40, water: 0, waterPer: 0, climb: 170, climbPer: 25, barrierGrade: 2, barrierHeight: 2, tempMin: 10, tempMax: 42, continents: ["Africa"], biomes: ["Tropical"], maxM: 1, maxF: 1, group: "1-2", predator: true },
+        { name: "Galapagos Giant Tortoise", land: 310, landPer: 55, water: 20, waterPer: 10, climb: 0, climbPer: 0, barrierGrade: 1, barrierHeight: 0.5, tempMin: 22, tempMax: 42, continents: ["S. America"], biomes: ["Tropical"], maxM: 4, maxF: 4, group: "1-8" },
+        { name: "Gemsbok", land: 525, landPer: 105, water: 0, waterPer: 0, climb: 0, climbPer: 0, barrierGrade: 3, barrierHeight: 1.25, tempMin: 14, tempMax: 45, continents: ["Africa"], biomes: ["Grassland", "Desert"], maxM: 1, maxF: 14, group: "3-15" },
+        { name: "Gharial", land: 130, landPer: 25, water: 260, waterPer: 55, deepWater: 130, deepWaterPer: 28, deepWaterDepth: 2, climb: 0, climbPer: 0, barrierGrade: 2, barrierHeight: 0.5, tempMin: 10, tempMax: 42, continents: ["Asia"], biomes: ["Aquatic", "Tropical"], maxM: 1, maxF: 5, group: "1-6" },
+        { name: "Giant Anteater", land: 370, landPer: 70, water: 45, waterPer: 15, climb: 0, climbPer: 0, barrierGrade: 2, barrierHeight: 1.25, tempMin: 16, tempMax: 42, continents: ["C. America", "S. America"], biomes: ["Grassland", "Tropical"], maxM: 1, maxF: 1, group: "1-2" },
+        { name: "Giant Otter", land: 260, landPer: 40, water: 340, waterPer: 56, deepWater: 170, deepWaterPer: 28, deepWaterDepth: 1, climb: 0, climbPer: 0, barrierGrade: 2, barrierHeight: 1.75, tempMin: 16, tempMax: 42, continents: ["S. America"], biomes: ["Aquatic", "Grassland", "Tropical"], maxM: 9, maxF: 9, group: "2-18" },
+        { name: "Giant Panda", land: 835, landPer: 125, water: 0, waterPer: 0, climb: 85, climbPer: 25, barrierGrade: 3, barrierHeight: 1.25, tempMin: 0, tempMax: 28, continents: ["Asia"], biomes: ["Temperate"], maxM: 1, maxF: 1, group: "1-2" },
+        { name: "Gray Seal", land: 260, landPer: 25, water: 340, waterPer: 45, deepWater: 170, deepWaterPer: 22, deepWaterDepth: 2, climb: 0, climbPer: 0, barrierGrade: 2, barrierHeight: 0.5, tempMin: -15, tempMax: 28, continents: ["N. America", "Europe"], biomes: ["Aquatic", "Tundra", "Taiga", "Temperate"], maxM: 1, maxF: 11, group: "3-12" },
+        { name: "Greater Flamingo", land: 402, landPer: 13, water: 212, waterPer: 8, deepWater: 0, deepWaterPer: 0, deepWaterDepth: 0, climb: 0, climbPer: 0, barrierGrade: 1, barrierHeight: 1, tempMin: 4, tempMax: 42, continents: ["Africa", "Asia", "Europe"], biomes: ["Aquatic", "Temperate", "Grassland", "Tropical"], maxM: 500, maxF: 500, group: "5-500" },
+        { name: "Greater Rhea", land: 525, landPer: 105, water: 0, waterPer: 0, climb: 0, climbPer: 0, barrierGrade: 2, barrierHeight: 1.25, tempMin: -15, tempMax: 35, continents: ["S. America"], biomes: ["Temperate", "Grassland"], maxM: 1, maxF: 7, group: "2-8" },
+        { name: "Grizzly Bear", land: 1254, landPer: 158, water: 95, waterPer: 30, climb: 0, climbPer: 0, barrierGrade: 4, barrierHeight: 4, tempMin: -20, tempMax: 25, continents: ["N. America"], biomes: ["Tundra", "Taiga", "Temperate", "Grassland"], maxM: 1, maxF: 1, group: "1-2", predator: true },
+        { name: "Hamadryas Baboon", land: 420, landPer: 90, water: 0, waterPer: 0, climb: 85, climbPer: 25, barrierGrade: 2, barrierHeight: 2.5, tempMin: 3, tempMax: 45, continents: ["Africa", "Asia"], biomes: ["Desert"], maxM: 1, maxF: 19, group: "5-20" },
+        { name: "Highland Cattle", land: 330, landPer: 60, water: 0, waterPer: 0, climb: 0, climbPer: 0, barrierGrade: 3, barrierHeight: 1.25, tempMin: -25, tempMax: 28, continents: ["Europe"], biomes: ["Tundra", "Taiga", "Temperate", "Grassland"], maxM: 1, maxF: 9, group: "2-10" },
+        { name: "Hill Radnor Sheep", land: 290, landPer: 20, water: 0, waterPer: 0, climb: 0, climbPer: 0, barrierGrade: 2, barrierHeight: 1.25, tempMin: -7, tempMax: 38, continents: ["Europe"], biomes: ["Temperate", "Grassland"], maxM: 1, maxF: 9, group: "2-10" },
+        { name: "Himalayan Brown Bear", land: 976, landPer: 170, water: 45, waterPer: 15, climb: 0, climbPer: 0, barrierGrade: 4, barrierHeight: 2.5, tempMin: -15, tempMax: 25, continents: ["Asia"], biomes: ["Tundra", "Taiga", "Temperate", "Grassland"], maxM: 1, maxF: 1, group: "1-2", predator: true },
+        { name: "Hippopotamus", land: 280, landPer: 55, water: 570, waterPer: 110, deepWater: 285, deepWaterPer: 55, deepWaterDepth: 2.5, climb: 0, climbPer: 0, barrierGrade: 4, barrierHeight: 0.5, tempMin: 16, tempMax: 42, continents: ["Africa"], biomes: ["Aquatic", "Tropical", "Grassland"], maxM: 1, maxF: 14, group: "3-15" },
+        { name: "Honey Badger", land: 310, landPer: 55, water: 0, waterPer: 0, climb: 0, climbPer: 0, barrierGrade: 1, barrierHeight: 0.5, tempMin: 10, tempMax: 44, continents: ["Africa", "Asia"], biomes: ["Temperate", "Grassland", "Tropical", "Desert"], maxM: 1, maxF: 1, group: "1-2", predator: true },
+        { name: "Indian Elephant", land: 1622, landPer: 500, water: 110, waterPer: 55, climb: 0, climbPer: 0, barrierGrade: 4, barrierHeight: 0.5, tempMin: 18, tempMax: 42, continents: ["Asia"], biomes: ["Temperate", "Grassland", "Tropical"], maxM: 1, maxF: 14, group: "3-15" },
+        { name: "Indian Peafowl", land: 260, landPer: 25, water: 0, waterPer: 0, climb: 0, climbPer: 0, barrierGrade: 1, barrierHeight: 2, tempMin: 10, tempMax: 42, continents: ["Asia"], biomes: ["Temperate", "Grassland", "Tropical"], maxM: 1, maxF: 6, group: "2-7" },
+        { name: "Indian Rhinoceros", land: 835, landPer: 125, water: 95, waterPer: 30, climb: 0, climbPer: 0, barrierGrade: 4, barrierHeight: 0.5, tempMin: 16, tempMax: 42, continents: ["Asia"], biomes: ["Aquatic", "Grassland", "Tropical"], maxM: 1, maxF: 1, group: "1-2" },
+        { name: "Jaguar", land: 750, landPer: 125, water: 95, waterPer: 30, climb: 45, climbPer: 15, barrierGrade: 4, barrierHeight: 4, tempMin: 16, tempMax: 42, continents: ["N. America", "C. America", "S. America"], biomes: ["Aquatic", "Grassland", "Tropical"], maxM: 1, maxF: 1, group: "1-2", predator: true },
+        { name: "Japanese Macaque", land: 330, landPer: 60, water: 45, waterPer: 15, climb: 0, climbPer: 0, barrierGrade: 2, barrierHeight: 2, tempMin: -15, tempMax: 28, continents: ["Asia"], biomes: ["Taiga", "Temperate"], maxM: 20, maxF: 20, group: "5-40" },
+        { name: "Japanese Racoon Dog", land: 310, landPer: 55, water: 20, waterPer: 10, climb: 0, climbPer: 0, barrierGrade: 1, barrierHeight: 0.5, tempMin: -15, tempMax: 28, continents: ["Asia"], biomes: ["Taiga", "Temperate"], maxM: 1, maxF: 1, group: "1-2", predator: true },
+        { name: "King Penguin", land: 340, landPer: 5, water: 135, waterPer: 2, deepWater: 68, deepWaterPer: 2, deepWaterDepth: 2, climb: 0, climbPer: 0, barrierGrade: 2, barrierHeight: 0.5, tempMin: -30, tempMax: 10, continents: ["Antarctica"], biomes: ["Aquatic", "Tundra"], maxM: 500, maxF: 500, group: "6-500" },
+        { name: "Kirk's Dik-Dik", land: 260, landPer: 25, water: 0, waterPer: 0, climb: 0, climbPer: 0, barrierGrade: 1, barrierHeight: 1, tempMin: 16, tempMax: 42, continents: ["Africa"], biomes: ["Grassland"], maxM: 1, maxF: 1, group: "1-2" },
+        { name: "Koala", land: 200, landPer: 90, water: 0, waterPer: 0, climb: 170, climbPer: 25, barrierGrade: 2, barrierHeight: 1, tempMin: -10, tempMax: 35, continents: ["Oceania"], biomes: ["Temperate"], maxM: 1, maxF: 3, group: "1-4" },
+        { name: "Komodo Dragon", land: 705, landPer: 110, water: 0, waterPer: 0, climb: 0, climbPer: 0, barrierGrade: 2, barrierHeight: 0.5, tempMin: 22, tempMax: 44, continents: ["Asia", "Oceania"], biomes: ["Tropical", "Desert"], maxM: 1, maxF: 1, group: "1-2", predator: true },
+        { name: "Lar Gibbon", land: 310, landPer: 40, water: 0, waterPer: 0, climb: 170, climbPer: 25, barrierGrade: 2, barrierHeight: 2, tempMin: 17, tempMax: 42, continents: ["Asia"], biomes: ["Tropical"], maxM: 1, maxF: 1, group: "1-2" },
+        { name: "Lion-Tailed Macaque", land: 330, landPer: 60, water: 0, waterPer: 0, climb: 170, climbPer: 25, barrierGrade: 2, barrierHeight: 2, tempMin: 17, tempMax: 42, continents: ["Asia"], biomes: ["Tropical"], maxM: 10, maxF: 10, group: "5-20" },
+        { name: "Little Penguin", land: 160, landPer: 20, water: 101, waterPer: 14, deepWater: 50, deepWaterPer: 7, deepWaterDepth: 2, climb: 0, climbPer: 0, barrierGrade: 2, barrierHeight: 0.5, tempMin: -10, tempMax: 35, continents: ["Oceania"], biomes: ["Aquatic", "Temperate"], maxM: 500, maxF: 500, group: "6-500" },
+        { name: "Llama", land: 330, landPer: 60, water: 0, waterPer: 0, climb: 0, climbPer: 0, barrierGrade: 2, barrierHeight: 1.25, tempMin: -15, tempMax: 35, continents: ["S. America"], biomes: ["Taiga", "Temperate", "Grassland"], maxM: 1, maxF: 9, group: "2-10" },
+        { name: "Malayan Tapir", land: 390, landPer: 60, water: 45, waterPer: 15, climb: 0, climbPer: 0, barrierGrade: 3, barrierHeight: 1.25, tempMin: 17, tempMax: 42, continents: ["Asia"], biomes: ["Tropical"], maxM: 1, maxF: 1, group: "1-2" },
+        { name: "Mandrill", land: 420, landPer: 90, water: 0, waterPer: 0, climb: 170, climbPer: 25, barrierGrade: 2, barrierHeight: 2, tempMin: 17, tempMax: 42, continents: ["Africa"], biomes: ["Tropical"], maxM: 1, maxF: 19, group: "5-20" },
+        { name: "Maned Wolf", land: 370, landPer: 55, water: 0, waterPer: 0, climb: 0, climbPer: 0, barrierGrade: 2, barrierHeight: 1.25, tempMin: 16, tempMax: 42, continents: ["S. America"], biomes: ["Grassland", "Tropical"], maxM: 1, maxF: 1, group: "1-2" },
+        { name: "Markhor", land: 420, landPer: 90, water: 0, waterPer: 0, climb: 45, climbPer: 15, barrierGrade: 2, barrierHeight: 1.75, tempMin: -15, tempMax: 25, continents: ["Asia"], biomes: ["Tundra", "Taiga", "Temperate"], maxM: 20, maxF: 20, group: "3-20" },
+        { name: "Meerkat", land: 260, landPer: 25, water: 0, waterPer: 0, climb: 0, climbPer: 0, barrierGrade: 1, barrierHeight: 0.5, tempMin: 14, tempMax: 44, continents: ["Africa"], biomes: ["Grassland", "Desert"], maxM: 15, maxF: 15, group: "5-30" },
+        { name: "Moose", land: 835, landPer: 125, water: 95, waterPer: 30, climb: 0, climbPer: 0, barrierGrade: 3, barrierHeight: 1.25, tempMin: -25, tempMax: 28, continents: ["N. America", "Europe", "Asia"], biomes: ["Tundra", "Taiga", "Temperate"], maxM: 1, maxF: 1, group: "1-2" },
+        { name: "Mute Swan", land: 200, landPer: 12, water: 100, waterPer: 6, deepWater: 0, deepWaterPer: 0, deepWaterDepth: 0, climb: 0, climbPer: 0, barrierGrade: 1, barrierHeight: 1.25, tempMin: -25, tempMax: 30, continents: ["N. America", "Europe", "Oceania"], biomes: ["Aquatic", "Temperate", "Grassland"], maxM: 1, maxF: 1, group: "1-2" },
+        { name: "Nile Lechwe", land: 370, landPer: 45, water: 100, waterPer: 10, climb: 0, climbPer: 0, barrierGrade: 2, barrierHeight: 1.25, tempMin: 16, tempMax: 42, continents: ["Africa"], biomes: ["Aquatic", "Grassland"], maxM: 1, maxF: 14, group: "3-15" },
+        { name: "Nile Monitor", land: 160, landPer: 20, water: 70, waterPer: 10, deepWater: 35, deepWaterPer: 5, deepWaterDepth: 1, climb: 0, climbPer: 0, barrierGrade: 2, barrierHeight: 1, tempMin: 16, tempMax: 44, continents: ["Africa"], biomes: ["Aquatic", "Grassland", "Tropical"], maxM: 1, maxF: 1, group: "1-2", predator: true },
+        { name: "Nilgai", land: 420, landPer: 90, water: 0, waterPer: 0, climb: 0, climbPer: 0, barrierGrade: 3, barrierHeight: 1.25, tempMin: 10, tempMax: 42, continents: ["Asia"], biomes: ["Grassland", "Desert"], maxM: 1, maxF: 9, group: "2-10" },
+        { name: "Nine-banded Armadillo", land: 260, landPer: 40, water: 0, waterPer: 0, climb: 0, climbPer: 0, barrierGrade: 1, barrierHeight: 0.5, tempMin: -15, tempMax: 35, continents: ["N. America", "C. America", "S. America"], biomes: ["Temperate", "Grassland", "Tropical"], maxM: 1, maxF: 1, group: "1-2" },
+        { name: "North American Beaver", land: 260, landPer: 40, water: 340, waterPer: 56, deepWater: 170, deepWaterPer: 28, deepWaterDepth: 1.5, climb: 0, climbPer: 0, barrierGrade: 2, barrierHeight: 0.5, tempMin: -25, tempMax: 30, continents: ["N. America"], biomes: ["Aquatic", "Tundra", "Taiga", "Temperate"], maxM: 1, maxF: 1, group: "1-2" },
+        { name: "North Island Brown Kiwi", land: 200, landPer: 90, water: 0, waterPer: 0, climb: 0, climbPer: 0, barrierGrade: 1, barrierHeight: 0.5, tempMin: -10, tempMax: 35, continents: ["Oceania"], biomes: ["Temperate", "Tropical"], maxM: 1, maxF: 1, group: "1-2" },
+        { name: "North Sulawesi Babirusa", land: 330, landPer: 60, water: 20, waterPer: 10, climb: 0, climbPer: 0, barrierGrade: 2, barrierHeight: 1, tempMin: 17, tempMax: 42, continents: ["Asia", "Oceania"], biomes: ["Tropical"], maxM: 1, maxF: 4, group: "2-5" },
+        { name: "Nyala", land: 370, landPer: 55, water: 0, waterPer: 0, climb: 0, climbPer: 0, barrierGrade: 2, barrierHeight: 1.25, tempMin: 16, tempMax: 40, continents: ["Africa"], biomes: ["Grassland", "Tropical"], maxM: 1, maxF: 29, group: "3-30" },
+        { name: "Ocelot", land: 370, landPer: 55, water: 20, waterPer: 10, climb: 45, climbPer: 15, barrierGrade: 2, barrierHeight: 2, tempMin: 16, tempMax: 42, continents: ["N. America", "C. America", "S. America"], biomes: ["Grassland", "Tropical"], maxM: 1, maxF: 1, group: "1-2", predator: true },
+        { name: "Okapi", land: 525, landPer: 105, water: 0, waterPer: 0, climb: 0, climbPer: 0, barrierGrade: 3, barrierHeight: 1.25, tempMin: 17, tempMax: 42, continents: ["Africa"], biomes: ["Tropical"], maxM: 1, maxF: 1, group: "1-2" },
+        { name: "Pallas's Cat", land: 260, landPer: 40, water: 0, waterPer: 0, climb: 0, climbPer: 0, barrierGrade: 1, barrierHeight: 1, tempMin: -15, tempMax: 25, continents: ["Asia"], biomes: ["Tundra", "Taiga", "Temperate", "Grassland", "Desert"], maxM: 1, maxF: 1, group: "1-2", predator: true },
+        { name: "Père David's Deer", land: 420, landPer: 90, water: 20, waterPer: 10, climb: 0, climbPer: 0, barrierGrade: 3, barrierHeight: 1.25, tempMin: 0, tempMax: 35, continents: ["Asia"], biomes: ["Aquatic", "Temperate"], maxM: 1, maxF: 14, group: "3-15" },
+        { name: "Plains Zebra", land: 525, landPer: 105, water: 0, waterPer: 0, climb: 0, climbPer: 0, barrierGrade: 3, barrierHeight: 1.25, tempMin: 16, tempMax: 42, continents: ["Africa"], biomes: ["Grassland"], maxM: 1, maxF: 5, group: "2-6" },
+        { name: "Platypus", land: 260, landPer: 40, water: 130, waterPer: 25, deepWater: 65, deepWaterPer: 12, deepWaterDepth: 1.5, climb: 0, climbPer: 0, barrierGrade: 2, barrierHeight: 0.5, tempMin: -10, tempMax: 35, continents: ["Oceania"], biomes: ["Aquatic", "Temperate"], maxM: 1, maxF: 1, group: "1-2" },
+        { name: "Polar Bear", land: 976, landPer: 170, water: 148, waterPer: 74, deepWater: 74, deepWaterPer: 37, deepWaterDepth: 2, climb: 0, climbPer: 0, barrierGrade: 4, barrierHeight: 4, tempMin: -40, tempMax: 10, continents: ["N. America", "Europe", "Asia"], biomes: ["Aquatic", "Tundra"], maxM: 1, maxF: 1, group: "1-2", predator: true },
+        { name: "Proboscis Monkey", land: 330, landPer: 60, water: 45, waterPer: 15, climb: 170, climbPer: 25, barrierGrade: 2, barrierHeight: 2, tempMin: 17, tempMax: 42, continents: ["Asia"], biomes: ["Aquatic", "Tropical"], maxM: 1, maxF: 11, group: "3-12" },
+        { name: "Pronghorn Antelope", land: 420, landPer: 90, water: 0, waterPer: 0, climb: 0, climbPer: 0, barrierGrade: 2, barrierHeight: 1.25, tempMin: -20, tempMax: 35, continents: ["N. America"], biomes: ["Temperate", "Grassland", "Desert"], maxM: 1, maxF: 14, group: "3-15" },
+        { name: "Przewalski's Horse", land: 630, landPer: 105, water: 0, waterPer: 0, climb: 0, climbPer: 0, barrierGrade: 3, barrierHeight: 1.25, tempMin: -20, tempMax: 40, continents: ["Asia"], biomes: ["Temperate", "Grassland", "Desert"], maxM: 1, maxF: 14, group: "3-15" },
+        { name: "Pygmy Hippo", land: 330, landPer: 60, water: 130, waterPer: 25, deepWater: 65, deepWaterPer: 12, deepWaterDepth: 1.5, climb: 0, climbPer: 0, barrierGrade: 3, barrierHeight: 1, tempMin: 17, tempMax: 42, continents: ["Africa"], biomes: ["Aquatic", "Tropical"], maxM: 1, maxF: 1, group: "1-2" },
+        { name: "Quokka", land: 200, landPer: 90, water: 0, waterPer: 0, climb: 0, climbPer: 0, barrierGrade: 1, barrierHeight: 0.5, tempMin: -10, tempMax: 35, continents: ["Oceania"], biomes: ["Temperate", "Grassland", "Tropical"], maxM: 15, maxF: 15, group: "5-30" },
+        { name: "Raccoon", land: 260, landPer: 40, water: 20, waterPer: 10, climb: 170, climbPer: 25, barrierGrade: 2, barrierHeight: 1, tempMin: -20, tempMax: 35, continents: ["N. America", "C. America", "S. America", "Asia", "Europe"], biomes: ["Taiga", "Temperate", "Grassland", "Tropical"], maxM: 2, maxF: 4, group: "2-6" },
+        { name: "Red Deer", land: 420, landPer: 90, water: 0, waterPer: 0, climb: 0, climbPer: 0, barrierGrade: 3, barrierHeight: 1.25, tempMin: -25, tempMax: 30, continents: ["Africa", "Asia", "Europe"], biomes: ["Tundra", "Taiga", "Temperate", "Grassland"], maxM: 1, maxF: 29, group: "3-30" },
+        { name: "Red Fox", land: 370, landPer: 55, water: 0, waterPer: 0, climb: 0, climbPer: 0, barrierGrade: 2, barrierHeight: 1, tempMin: -25, tempMax: 30, continents: ["Africa", "N. America", "Asia", "Europe", "Oceania"], biomes: ["Tundra", "Taiga", "Temperate", "Grassland", "Desert"], maxM: 1, maxF: 1, group: "1-2", predator: true },
+        { name: "Red Kangaroo", land: 630, landPer: 105, water: 0, waterPer: 0, climb: 0, climbPer: 0, barrierGrade: 2, barrierHeight: 1.25, tempMin: -10, tempMax: 44, continents: ["Oceania"], biomes: ["Temperate", "Grassland", "Desert"], maxM: 1, maxF: 9, group: "2-10" },
+        { name: "Red Panda", land: 230, landPer: 55, water: 0, waterPer: 0, climb: 110, climbPer: 35, barrierGrade: 2, barrierHeight: 1, tempMin: 0, tempMax: 28, continents: ["Asia"], biomes: ["Taiga", "Temperate"], maxM: 1, maxF: 1, group: "1-2" },
+        { name: "Red River Hog", land: 310, landPer: 40, water: 20, waterPer: 10, climb: 0, climbPer: 0, barrierGrade: 2, barrierHeight: 1, tempMin: 17, tempMax: 42, continents: ["Africa"], biomes: ["Tropical"], maxM: 1, maxF: 5, group: "2-6" },
+        { name: "Red Ruffed Lemur", land: 260, landPer: 40, water: 0, waterPer: 0, climb: 170, climbPer: 25, barrierGrade: 2, barrierHeight: 2, tempMin: 10, tempMax: 42, continents: ["Africa"], biomes: ["Tropical"], maxM: 3, maxF: 3, group: "2-6" },
+        { name: "Red-Crowned Crane", land: 310, landPer: 40, water: 100, waterPer: 10, climb: 0, climbPer: 0, barrierGrade: 1, barrierHeight: 2, tempMin: -25, tempMax: 30, continents: ["Asia"], biomes: ["Aquatic", "Taiga", "Temperate", "Grassland"], maxM: 1, maxF: 1, group: "1-2" },
+        { name: "Red-necked Wallaby", land: 370, landPer: 45, water: 0, waterPer: 0, climb: 0, climbPer: 0, barrierGrade: 1, barrierHeight: 1, tempMin: -10, tempMax: 35, continents: ["Oceania"], biomes: ["Temperate", "Grassland"], maxM: 1, maxF: 1, group: "1-2" },
+        { name: "Reindeer", land: 525, landPer: 105, water: 0, waterPer: 0, climb: 0, climbPer: 0, barrierGrade: 2, barrierHeight: 1.25, tempMin: -40, tempMax: 22, continents: ["N. America", "Europe", "Asia"], biomes: ["Tundra", "Taiga"], maxM: 1, maxF: 24, group: "3-25" },
+        { name: "Reticulated Giraffe", land: 976, landPer: 170, water: 0, waterPer: 0, climb: 0, climbPer: 0, barrierGrade: 4, barrierHeight: 3, tempMin: 16, tempMax: 42, continents: ["Africa"], biomes: ["Grassland"], maxM: 1, maxF: 8, group: "2-9" },
+        { name: "Ring Tailed Lemur", land: 370, landPer: 55, water: 0, waterPer: 0, climb: 170, climbPer: 25, barrierGrade: 2, barrierHeight: 2, tempMin: 10, tempMax: 42, continents: ["Africa"], biomes: ["Temperate", "Tropical"], maxM: 15, maxF: 15, group: "5-30" },
+        { name: "Sable Antelope", land: 525, landPer: 105, water: 0, waterPer: 0, climb: 0, climbPer: 0, barrierGrade: 3, barrierHeight: 1.25, tempMin: 16, tempMax: 42, continents: ["Africa"], biomes: ["Grassland", "Tropical"], maxM: 1, maxF: 29, group: "3-30" },
+        { name: "Saiga", land: 420, landPer: 90, water: 0, waterPer: 0, climb: 0, climbPer: 0, barrierGrade: 2, barrierHeight: 1.25, tempMin: -20, tempMax: 40, continents: ["Asia"], biomes: ["Temperate", "Grassland", "Desert"], maxM: 1, maxF: 29, group: "3-30" },
+        { name: "Saltwater Crocodile", land: 420, landPer: 90, water: 243, waterPer: 49, deepWater: 122, deepWaterPer: 24, deepWaterDepth: 2, climb: 0, climbPer: 0, barrierGrade: 4, barrierHeight: 0.5, tempMin: 16, tempMax: 44, continents: ["Asia", "Oceania"], biomes: ["Aquatic", "Tropical"], maxM: 1, maxF: 1, group: "1-2", predator: true },
+        { name: "Sand Cat", land: 260, landPer: 40, water: 0, waterPer: 0, climb: 0, climbPer: 0, barrierGrade: 1, barrierHeight: 1, tempMin: 3, tempMax: 45, continents: ["Africa", "Asia"], biomes: ["Desert"], maxM: 1, maxF: 1, group: "1-2", predator: true },
+        { name: "Scimitar-horned Oryx", land: 525, landPer: 105, water: 0, waterPer: 0, climb: 0, climbPer: 0, barrierGrade: 3, barrierHeight: 1.25, tempMin: 3, tempMax: 45, continents: ["Africa"], biomes: ["Desert"], maxM: 1, maxF: 29, group: "3-30" },
+        { name: "Siamang", land: 310, landPer: 40, water: 0, waterPer: 0, climb: 170, climbPer: 25, barrierGrade: 2, barrierHeight: 2, tempMin: 17, tempMax: 42, continents: ["Asia"], biomes: ["Tropical"], maxM: 1, maxF: 1, group: "1-2" },
+        { name: "Siberian Tiger", land: 1162, landPer: 142, water: 95, waterPer: 30, climb: 0, climbPer: 0, barrierGrade: 4, barrierHeight: 4, tempMin: -25, tempMax: 25, continents: ["Asia"], biomes: ["Tundra", "Taiga", "Temperate"], maxM: 1, maxF: 1, group: "1-2", predator: true },
+        { name: "Sloth Bear", land: 976, landPer: 170, water: 45, waterPer: 15, climb: 45, climbPer: 15, barrierGrade: 4, barrierHeight: 2.5, tempMin: 10, tempMax: 42, continents: ["Asia"], biomes: ["Temperate", "Grassland", "Tropical"], maxM: 1, maxF: 1, group: "1-2", predator: true },
+        { name: "Snow Leopard", land: 705, landPer: 110, water: 0, waterPer: 0, climb: 45, climbPer: 15, barrierGrade: 3, barrierHeight: 3, tempMin: -30, tempMax: 25, continents: ["Asia"], biomes: ["Tundra", "Taiga"], maxM: 1, maxF: 1, group: "1-2", predator: true },
+        { name: "Somali Wild Ass", land: 420, landPer: 90, water: 0, waterPer: 0, climb: 0, climbPer: 0, barrierGrade: 2, barrierHeight: 1.25, tempMin: 3, tempMax: 45, continents: ["Africa"], biomes: ["Desert"], maxM: 1, maxF: 4, group: "2-5" },
+        { name: "Southern Cassowary", land: 525, landPer: 105, water: 0, waterPer: 0, climb: 0, climbPer: 0, barrierGrade: 2, barrierHeight: 1.25, tempMin: 17, tempMax: 42, continents: ["Oceania"], biomes: ["Tropical"], maxM: 1, maxF: 1, group: "1-2" },
+        { name: "Southern White Rhinoceros", land: 835, landPer: 125, water: 20, waterPer: 10, climb: 0, climbPer: 0, barrierGrade: 4, barrierHeight: 0.5, tempMin: 16, tempMax: 42, continents: ["Africa"], biomes: ["Grassland"], maxM: 1, maxF: 4, group: "2-5" },
+        { name: "Spectacled Bear", land: 976, landPer: 170, water: 45, waterPer: 15, climb: 85, climbPer: 25, barrierGrade: 4, barrierHeight: 2.5, tempMin: 16, tempMax: 42, continents: ["S. America"], biomes: ["Grassland", "Tropical"], maxM: 1, maxF: 1, group: "1-2", predator: true },
+        { name: "Spectacled Caiman", land: 160, landPer: 20, water: 101, waterPer: 14, deepWater: 50, deepWaterPer: 7, deepWaterDepth: 1, climb: 0, climbPer: 0, barrierGrade: 2, barrierHeight: 0.5, tempMin: 10, tempMax: 42, continents: ["C. America", "S. America"], biomes: ["Aquatic", "Temperate", "Grassland", "Tropical"], maxM: 1, maxF: 1, group: "1-2", predator: true },
+        { name: "Spotted Hyena", land: 1162, landPer: 92, water: 0, waterPer: 0, climb: 0, climbPer: 0, barrierGrade: 2, barrierHeight: 1.75, tempMin: 16, tempMax: 44, continents: ["Africa"], biomes: ["Grassland", "Tropical", "Desert"], maxM: 10, maxF: 10, group: "3-10", predator: true },
+        { name: "Springbok", land: 425, landPer: 55, water: 0, waterPer: 0, climb: 0, climbPer: 0, barrierGrade: 2, barrierHeight: 1.25, tempMin: 14, tempMax: 44, continents: ["Africa"], biomes: ["Grassland", "Desert"], maxM: 1, maxF: 29, group: "3-30" },
+        { name: "Striped Hyena", land: 1162, landPer: 92, water: 0, waterPer: 0, climb: 0, climbPer: 0, barrierGrade: 2, barrierHeight: 1.25, tempMin: 10, tempMax: 44, continents: ["Africa", "Asia"], biomes: ["Temperate", "Grassland", "Tropical", "Desert"], maxM: 5, maxF: 5, group: "1-6", predator: true },
+        { name: "Striped Skunk", land: 180, landPer: 42, water: 0, waterPer: 0, climb: 0, climbPer: 0, barrierGrade: 1, barrierHeight: 0.5, tempMin: -20, tempMax: 35, continents: ["N. America"], biomes: ["Taiga", "Temperate", "Grassland", "Desert"], maxM: 1, maxF: 9, group: "2-10" },
+        { name: "Sun Bear", land: 920, landPer: 142, water: 56, waterPer: 28, climb: 63, climbPer: 40, barrierGrade: 4, barrierHeight: 0.5, tempMin: 17, tempMax: 42, continents: ["Asia"], biomes: ["Tropical"], maxM: 1, maxF: 1, group: "1-2" },
+        { name: "Sussex Chicken", land: 200, landPer: 12, water: 0, waterPer: 0, climb: 0, climbPer: 0, barrierGrade: 1, barrierHeight: 1.25, tempMin: -15, tempMax: 35, continents: ["Europe"], biomes: ["Temperate", "Grassland"], maxM: 8, maxF: 72, group: "2-80" },
+        { name: "Takin", land: 390, landPer: 60, water: 0, waterPer: 0, climb: 45, climbPer: 15, barrierGrade: 3, barrierHeight: 1.25, tempMin: -15, tempMax: 25, continents: ["Asia"], biomes: ["Tundra", "Taiga", "Temperate"], maxM: 1, maxF: 19, group: "2-20" },
+        { name: "Tamworth Pig", land: 290, landPer: 20, water: 0, waterPer: 0, climb: 0, climbPer: 0, barrierGrade: 3, barrierHeight: 1.25, tempMin: -15, tempMax: 35, continents: ["Europe"], biomes: ["Temperate", "Grassland"], maxM: 1, maxF: 4, group: "1-5" },
+        { name: "Tasmanian Devil", land: 200, landPer: 90, water: 0, waterPer: 0, climb: 0, climbPer: 0, barrierGrade: 2, barrierHeight: 1, tempMin: -10, tempMax: 35, continents: ["Oceania"], biomes: ["Temperate", "Grassland"], maxM: 1, maxF: 4, group: "1-5", predator: true },
+        { name: "Thomson's Gazelle", land: 535, landPer: 55, water: 0, waterPer: 0, climb: 0, climbPer: 0, barrierGrade: 2, barrierHeight: 1.25, tempMin: 16, tempMax: 42, continents: ["Africa"], biomes: ["Grassland"], maxM: 1, maxF: 35, group: "3-36" },
+        { name: "Timber Wolf", land: 1254, landPer: 92, water: 0, waterPer: 0, climb: 0, climbPer: 0, barrierGrade: 2, barrierHeight: 2, tempMin: -25, tempMax: 30, continents: ["N. America", "Europe", "Asia"], biomes: ["Tundra", "Taiga", "Temperate", "Grassland"], maxM: 12, maxF: 12, group: "2-12", predator: true },
+        { name: "West African Lion", land: 1162, landPer: 142, water: 0, waterPer: 0, climb: 0, climbPer: 0, barrierGrade: 4, barrierHeight: 4, tempMin: 16, tempMax: 44, continents: ["Africa"], biomes: ["Grassland", "Desert"], maxM: 1, maxF: 29, group: "2-30", predator: true },
+        { name: "Western Chimpanzee", land: 615, landPer: 125, water: 0, waterPer: 0, climb: 260, climbPer: 55, barrierGrade: 3, barrierHeight: 4, tempMin: 15, tempMax: 42, continents: ["Africa"], biomes: ["Tropical"], maxM: 10, maxF: 10, group: "5-15" },
+        { name: "Western Lowland Gorilla", land: 1102, landPer: 185, water: 0, waterPer: 0, climb: 170, climbPer: 25, barrierGrade: 3, barrierHeight: 4, tempMin: 15, tempMax: 42, continents: ["Africa"], biomes: ["Tropical"], maxM: 1, maxF: 5, group: "3-6" },
+        { name: "White-faced Saki", land: 260, landPer: 40, water: 0, waterPer: 0, climb: 170, climbPer: 25, barrierGrade: 2, barrierHeight: 2.5, tempMin: 17, tempMax: 42, continents: ["S. America"], biomes: ["Tropical"], maxM: 5, maxF: 5, group: "2-10" },
+        { name: "Wild Boar", land: 310, landPer: 15, water: 20, waterPer: 10, climb: 0, climbPer: 0, barrierGrade: 3, barrierHeight: 1.25, tempMin: -4, tempMax: 43, continents: ["Africa", "Asia", "Europe"], biomes: ["Taiga", "Temperate", "Grassland", "Tropical", "Desert"], maxM: 1, maxF: 29, group: "3-30" },
+        { name: "Wild Water Buffalo", land: 570, landPer: 80, water: 200, waterPer: 10, climb: 0, climbPer: 0, barrierGrade: 3, barrierHeight: 1.25, tempMin: 17, tempMax: 42, continents: ["Asia"], biomes: ["Aquatic", "Grassland", "Tropical"], maxM: 1, maxF: 29, group: "3-30" },
+        { name: "Wisent", land: 525, landPer: 105, water: 0, waterPer: 0, climb: 0, climbPer: 0, barrierGrade: 3, barrierHeight: 1.25, tempMin: -7, tempMax: 38, continents: ["Europe"], biomes: ["Taiga", "Temperate", "Grassland"], maxM: 1, maxF: 12, group: "2-13" },
+        { name: "Wolverine", land: 1162, landPer: 92, water: 0, waterPer: 0, climb: 45, climbPer: 15, barrierGrade: 2, barrierHeight: 1.25, tempMin: -40, tempMax: 22, continents: ["N. America", "Asia", "Europe"], biomes: ["Tundra", "Taiga"], maxM: 1, maxF: 1, group: "1-2", predator: true },
+    ];
+
+    // Expanded compatibility data: 2=Enrichment, 1=Neutral, 0=Conflict
+    const compatibility = {
+        "Bongo-Red River Hog": 2, "Red River Hog-Bongo": 2,
+        "Common Ostrich-African Buffalo": 2, "African Buffalo-Common Ostrich": 2,
+        "Common Ostrich-Black Wildebeest": 2, "Black Wildebeest-Common Ostrich": 2,
+        "Common Ostrich-Common Warthog": 2, "Common Warthog-Common Ostrich": 2,
+        "Common Ostrich-Gemsbok": 2, "Gemsbok-Common Ostrich": 2,
+        "Common Ostrich-Plains Zebra": 2, "Plains Zebra-Common Ostrich": 2,
+        "Common Ostrich-Reticulated Giraffe": 2, "Reticulated Giraffe-Common Ostrich": 2,
+        "Common Ostrich-Sable Antelope": 2, "Sable Antelope-Common Ostrich": 2,
+        "Common Ostrich-Springbok": 2, "Springbok-Common Ostrich": 2,
+        "Common Ostrich-Thomson's Gazelle": 2, "Thomson's Gazelle-Common Ostrich": 2,
+        "Common Warthog-Nyala": 2, "Nyala-Common Warthog": 2,
+        "Plains Zebra-African Buffalo": 2, "African Buffalo-Plains Zebra": 2,
+        "Plains Zebra-Black Wildebeest": 2, "Black Wildebeest-Plains Zebra": 2,
+        "Plains Zebra-Gemsbok": 2, "Gemsbok-Plains Zebra": 2,
+        "Plains Zebra-Sable Antelope": 2, "Sable Antelope-Plains Zebra": 2,
+        "Plains Zebra-Springbok": 2, "Springbok-Plains Zebra": 2,
+        "Plains Zebra-Thomson's Gazelle": 2, "Thomson's Gazelle-Plains Zebra": 2,
+        "Thomson's Gazelle-Black Wildebeest": 2, "Black Wildebeest-Thomson's Gazelle": 2,
+        "Baird's Tapir-Capybara": 2, "Capybara-Baird's Tapir": 2,
+        "American Bison-Pronghorn Antelope": 2, "Pronghorn Antelope-American Bison": 2,
+        "Llama-Baird's Tapir": 1, "Baird's Tapir-Llama": 1,
+        "Aldabra Giant Tortoise-Galapagos Giant Tortoise": 1, "Galapagos Giant Tortoise-Aldabra Giant Tortoise": 1,
+        "African Spurred Tortoise-Aldabra Giant Tortoise": 1, "Aldabra Giant Tortoise-African Spurred Tortoise": 1,
+        "African Spurred Tortoise-Galapagos Giant Tortoise": 1, "Galapagos Giant Tortoise-African Spurred Tortoise": 1,
+        "Red Panda-Indian Peafowl": 1, "Indian Peafowl-Red Panda": 1,
+        "Nyala-Sable Antelope": 2, "Sable Antelope-Nyala": 2,
+        "Bongo-Nyala": 2, "Nyala-Bongo": 2
+    };
+
+    // --- SCRIPT START ---
+    
+    document.addEventListener('DOMContentLoaded', () => {
+        const animalSelect = document.getElementById('animal-select');
+        const addAnimalBtn = document.getElementById('add-animal-btn');
+        const resetHabitatBtn = document.getElementById('reset-habitat-btn');
+        const selectedAnimalsList = document.getElementById('selected-animals-list');
+        const resultsPlaceholder = document.getElementById('results-placeholder');
+        const resultsContent = document.getElementById('results-content');
+        const emptyState = document.getElementById('empty-state');
+
+        let habitatAnimals = []; // Array to store selected animal objects with counts
+
+        // --- Initialization ---
+        function init() {
+            // Sort animals alphabetically for the dropdown
+            const sortedAnimals = [...animalData].sort((a, b) => a.name.localeCompare(b.name));
+            
+            sortedAnimals.forEach(animal => {
+                const option = document.createElement('option');
+                option.value = animal.name;
+                option.textContent = animal.name;
+                animalSelect.appendChild(option);
+            });
+
+            addAnimalBtn.addEventListener('click', addAnimalToHabitat);
+            resetHabitatBtn.addEventListener('click', resetHabitat);
+        }
+
+        // --- Core Logic ---
+        function addAnimalToHabitat() {
+            const selectedName = animalSelect.value;
+            const animalExists = habitatAnimals.some(a => a.name === selectedName);
+            
+            if (animalExists) {
+                 // Simple feedback, can be replaced with a modal/toast
+                alert(`${selectedName} is already in the habitat.`);
+                return;
+            }
+
+            const animal = animalData.find(a => a.name === selectedName);
+            if (animal) {
+                // Default to min group size
+                const defaultM = animal.maxM > 0 ? 1 : 0;
+                let defaultF = animal.maxF > 0 ? 1 : 0;
+                const [minGroup, maxGroup] = animal.group.split('-').map(Number);
+                
+                if (maxGroup <= 2 && minGroup === 1) { // Solitary or pair
+                     habitatAnimals.push({ ...animal, m: 1, f: 0 });
+                } else {
+                     let total = defaultM + defaultF;
+                     if(total < minGroup) {
+                         defaultF = minGroup - defaultM;
+                     }
+                      if (defaultF < 0) defaultF = 0;
+                     habitatAnimals.push({ ...animal, m: defaultM, f: defaultF });
+                }
+                updateHabitat();
+            }
+        }
+        
+        function removeAnimalFromHabitat(name) {
+            habitatAnimals = habitatAnimals.filter(a => a.name !== name);
+            updateHabitat();
+        }
+
+        function updateAnimalCount(name, gender, value) {
+            const animal = habitatAnimals.find(a => a.name === name);
+            if (animal) {
+                animal[gender] = Math.max(0, parseInt(value, 10)); // Ensure non-negative
+                updateHabitat();
+            }
+        }
+        
+        function resetHabitat() {
+            habitatAnimals = [];
+            updateHabitat();
+        }
+
+        function updateHabitat() {
+            renderSelectedAnimals();
+            calculateAndRenderResults();
+        }
+
+        // --- Calculation ---
+        function calculateAndRenderResults() {
+            if (habitatAnimals.length === 0) {
+                resultsPlaceholder.classList.remove('hidden');
+                resultsContent.classList.add('hidden');
+                return;
+            }
+
+            resultsPlaceholder.classList.add('hidden');
+            resultsContent.classList.remove('hidden');
+
+            let totalLand = 0;
+            let totalWater = 0;
+            let totalDeepWater = 0;
+            let totalClimb = 0;
+            let maxBarrierGrade = 0;
+            let maxBarrierHeight = 0;
+            let maxDeepWaterDepth = 0;
+            
+            let tempRange = { min: -100, max: 100 };
+            let allContinents = new Set();
+            let allBiomes = new Set();
+            let predatorCount = 0;
+            let preyCount = 0;
+
+            habitatAnimals.forEach(animal => {
+                const count = animal.m + animal.f;
+                if (count > 0) {
+                    totalLand += (animal.land || 0) + Math.max(0, count - 1) * (animal.landPer || 0);
+                    totalWater += (animal.water || 0) + Math.max(0, count - 1) * (animal.waterPer || 0);
+                    totalClimb += (animal.climb || 0) + Math.max(0, count - 1) * (animal.climbPer || 0);
+                    if (animal.deepWater) {
+                        totalDeepWater += (animal.deepWater || 0) + Math.max(0, count - 1) * (animal.deepWaterPer || 0);
+                        maxDeepWaterDepth = Math.max(maxDeepWaterDepth, animal.deepWaterDepth || 0);
+                    }
+                }
+                
+                maxBarrierGrade = Math.max(maxBarrierGrade, animal.barrierGrade);
+                maxBarrierHeight = Math.max(maxBarrierHeight, animal.barrierHeight);
+
+                // Find intersecting temperature range
+                tempRange.min = Math.max(tempRange.min, animal.tempMin);
+                tempRange.max = Math.min(tempRange.max, animal.tempMax);
+                
+                animal.continents.forEach(c => allContinents.add(c));
+                animal.biomes.forEach(b => allBiomes.add(b));
+
+                if (animal.predator) predatorCount++;
+                else preyCount++;
+            });
+
+            // Compatibility Check
+            let compatMessages = [];
+            if(predatorCount > 0 && preyCount > 0) {
+                compatMessages.push({
+                    type: 'danger',
+                    text: 'Predators and prey animals are mixed. This is extremely dangerous!'
+                });
+            }
+             if (habitatAnimals.length > 1) {
+                const checkedPairs = new Set();
+                for (let i = 0; i < habitatAnimals.length; i++) {
+                    for (let j = i + 1; j < habitatAnimals.length; j++) {
+                        const a1 = habitatAnimals[i];
+                        const a2 = habitatAnimals[j];
+                        const pairKey = [a1.name, a2.name].sort().join('-');
+                        if(checkedPairs.has(pairKey)) continue;
+
+                        const key1 = `${a1.name}-${a2.name}`;
+                        const key2 = `${a2.name}-${a1.name}`;
+                        
+                        let level = null;
+                        if (compatibility.hasOwnProperty(key1)) {
+                            level = compatibility[key1];
+                        } else if (compatibility.hasOwnProperty(key2)) {
+                            level = compatibility[key2];
+                        }
+
+                        if (level === 2) {
+                            compatMessages.push({ type: 'success', text: `${a1.name} & ${a2.name} receive an enrichment bonus.`});
+                        } else if (level === 0) {
+                            compatMessages.push({ type: 'danger', text: `${a1.name} & ${a2.name} will conflict.`});
+                        }
+                        checkedPairs.add(pairKey);
+                    }
+                }
+            }
+            if (compatMessages.length === 0 && habitatAnimals.length > 1 && !(predatorCount > 0 && preyCount > 0)) {
+                compatMessages.push({ type: 'info', text: 'All selected species are neutral towards each other.'});
+            }
+
+            // Render
+            const tempValid = tempRange.min <= tempRange.max;
+            resultsContent.innerHTML = `
+                <h2 class="text-3xl font-bold text-green-700 mb-6">Habitat Requirements</h2>
+                
+                <!-- Compatibility Section -->
+                <div class="mb-6">
+                    <h3 class="text-xl font-semibold mb-3 text-gray-700">Interspecies Compatibility</h3>
+                    <div class="space-y-2">
+                        ${compatMessages.map(msg => `
+                            <div class="p-3 rounded-lg flex items-center ${
+                                msg.type === 'danger' ? 'bg-red-100 text-red-800' : 
+                                msg.type === 'success' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'
+                            }">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-3 flex-shrink-0">
+                                ${ msg.type === 'danger' ? '<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>' :
+                                   msg.type === 'success' ? '<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>' :
+                                   '<circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>'
+                                }
+                                </svg>
+                                <span>${msg.text}</span>
+                            </div>
+                        `).join('') || '<p class="text-gray-500">Add another animal to check compatibility.</p>'}
+                    </div>
+                </div>
+
+                <!-- Main Stats Grid -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    ${renderStatCard('Total Land Area', `${totalLand.toFixed(0)} m²`, 'grass')}
+                    ${renderStatCard('Total Water Area', `${totalWater.toFixed(0)} m²`, 'water')}
+                    ${totalClimb > 0 ? renderStatCard('Total Climbing Area', `${totalClimb.toFixed(0)} m²`, 'climb') : ''}
+                    ${totalDeepWater > 0 ? renderStatCard('Deep Water Area', `${totalDeepWater.toFixed(0)} m² at ${maxDeepWaterDepth}m`, 'deepwater') : ''}
+                    ${renderStatCard('Barrier Grade', `Grade ${maxBarrierGrade}`, 'barrier')}
+                    ${renderStatCard('Barrier Height', `${maxBarrierHeight} m`, 'barrier')}
+                    ${renderStatCard('Temperature', tempValid ? `${tempRange.min}°C to ${tempRange.max}°C` : 'Incompatible', 'temp', !tempValid)}
+                </div>
+
+                <!-- Tags Section -->
+                <div class="mt-6">
+                    <h3 class="text-xl font-semibold mb-3 text-gray-700">Required Tags</h3>
+                    <div class="flex flex-wrap gap-2">
+                        <span class="font-semibold mr-2">Continents:</span>
+                        ${[...allContinents].map(c => `<span class="bg-yellow-200 text-yellow-800 text-sm font-medium px-3 py-1 rounded-full">${c}</span>`).join('')}
+                    </div>
+                    <div class="flex flex-wrap gap-2 mt-2">
+                        <span class="font-semibold mr-2">Biomes:</span>
+                        ${[...allBiomes].map(b => `<span class="bg-indigo-200 text-indigo-800 text-sm font-medium px-3 py-1 rounded-full">${b}</span>`).join('')}
+                    </div>
+                </div>
+            `;
+        }
+        
+        // --- Rendering ---
+        function renderSelectedAnimals() {
+            if (habitatAnimals.length === 0) {
+                emptyState.classList.remove('hidden');
+                selectedAnimalsList.innerHTML = '';
+                 selectedAnimalsList.appendChild(emptyState);
+            } else {
+                emptyState.classList.add('hidden');
+                selectedAnimalsList.innerHTML = habitatAnimals.map(animal => {
+                    const totalCount = animal.m + animal.f;
+                    const [minGroup, maxGroup] = animal.group.split('-').map(Number);
+                    const groupOk = totalCount >= minGroup && totalCount <= maxGroup;
+                    const maleOk = animal.m <= animal.maxM;
+                    const femaleOk = animal.f <= animal.maxF;
+                    
+                    return `
+                    <div class="bg-gray-50 p-4 rounded-lg border border-gray-200 fade-in">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <h4 class="font-bold text-lg text-gray-800">${animal.name}</h4>
+                                <p class="text-sm text-gray-500" title="Min/Max Group Size">Group: ${animal.group} ${groupOk ? '✔️' : '❌'}</p>
+                            </div>
+                            <button class="remove-btn text-gray-400 hover:text-red-500 transition-colors" data-name="${animal.name}" title="Remove ${animal.name}">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                            </button>
+                        </div>
+                        <div class="flex gap-4 mt-3">
+                            <div class="w-1/2">
+                                <label class="block text-xs font-medium text-gray-500">Males (Max: ${animal.maxM})</label>
+                                <input type="number" min="0" value="${animal.m}" data-name="${animal.name}" data-gender="m" 
+                                class="count-input w-full p-1 border rounded-md mt-1 text-center ${!maleOk ? 'border-red-500 bg-red-50' : 'border-gray-300'}">
+                            </div>
+                            <div class="w-1/2">
+                                <label class="block text-xs font-medium text-gray-500">Females (Max: ${animal.maxF})</label>
+                                <input type="number" min="0" value="${animal.f}" data-name="${animal.name}" data-gender="f" 
+                                class="count-input w-full p-1 border rounded-md mt-1 text-center ${!femaleOk ? 'border-red-500 bg-red-50' : 'border-gray-300'}">
+                            </div>
+                        </div>
+                    </div>
+                    `;
+                }).join('');
+
+                // Re-add event listeners for new elements
+                document.querySelectorAll('.remove-btn').forEach(btn => 
+                    btn.addEventListener('click', (e) => removeAnimalFromHabitat(e.currentTarget.dataset.name))
+                );
+                document.querySelectorAll('.count-input').forEach(input => 
+                    input.addEventListener('change', (e) => updateAnimalCount(e.target.dataset.name, e.target.dataset.gender, e.target.value))
+                );
+            }
+        }
+        
+        function renderStatCard(title, value, type, isError = false) {
+            const icons = {
+                grass: '<path d="M2 22v-6c0-1.1.9-2 2-2h16a2 2 0 0 1 2 2v6H2z"/><path d="M12 14v-2a2 2 0 0 1 2-2h0a2 2 0 0 1 2 2v2"/><path d="M12 10V8"/><path d="M12 2v2"/>',
+                water: '<path d="M17.2 22H6.8a4 4 0 0 1-3.6-2.4L1.2 14a4 4 0 0 1 0-3.2l2-5.2A4 4 0 0 1 6.8 2h10.4a4 4 0 0 1 3.6 3.4l2 5.2a4 4 0 0 1 0 3.2l-2 5.2a4 4 0 0 1-3.6 2.4z"/><path d="M5 12h14"/>',
+                climb: '<path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.37 3.63L14 8l-1.59-1.59a2 2 0 0 0-2.82 0L8 8"/>',
+                deepwater: '<path d="M2.5 12.5a10 10 0 1 1 19 0a10 10 0 0 1-19 0Z"/><path d="M12 12v6"/><path d="m15 15-3 3-3-3"/>',
+                barrier: '<path d="M18 10h4v10h-4"/><path d="M12 4h4v16h-4"/><path d="M6 14h4v6h-4"/><path d="M2 18h4v2H2z"/>',
+                temp: '<path d="M14 4v10.54a4 4 0 1 1-4 0V4a2 2 0 0 1 4 0Z"/>'
+            };
+
+            return `
+            <div class="p-4 rounded-lg ${isError ? 'bg-red-100' : 'bg-gray-50'} border ${isError ? 'border-red-300' : 'border-gray-200'}">
+                <div class="flex items-center">
+                    <div class="p-2 bg-green-100 text-green-600 rounded-full mr-4">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${icons[type]}</svg>
+                    </div>
+                    <div>
+                        <p class="text-sm text-gray-500">${title}</p>
+                        <p class="text-xl font-bold ${isError ? 'text-red-600' : 'text-gray-800'}">${value}</p>
+                    </div>
+                </div>
+            </div>`;
+        }
+
+
+        // --- Start the app ---
+        init();
+    });
+    </script>
+</body>
+</html>
+
